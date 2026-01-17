@@ -1,4 +1,9 @@
 // include/framedot/ecs/World.hpp
+/**
+ * @file World.hpp
+ * @brief EnTT registry를 소유하고, 시스템을 Phase 순서대로 실행하는 ECS World
+ *
+ */
 #pragma once
 #include <entt/entt.hpp>
 

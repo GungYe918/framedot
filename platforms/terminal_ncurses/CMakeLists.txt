@@ -1,20 +1,33 @@
+# platforms/terminal_ncurses/cmake
 find_package(Curses REQUIRED)
 
-add_executable(framedot_term_probe
-  src/main.cpp
+add_library(framedot_terminal_ncurses
   src/TerminalSurface.cpp
   src/TerminalInput.cpp
 )
 
-target_include_directories(framedot_term_probe PRIVATE
-  ${PROJECT_SOURCE_DIR}/platforms/terminal_ncurses/include
+add_library(framedot::terminal_ncurses ALIAS framedot_terminal_ncurses)
+
+target_include_directories(framedot_terminal_ncurses
+  PUBLIC
+    ${PROJECT_SOURCE_DIR}/platforms/terminal_ncurses/include
+  PRIVATE
+    ${CURSES_INCLUDE_DIRS}
 )
 
-target_link_libraries(framedot_term_probe PRIVATE
-  framedot::framedot
-  ${CURSES_LIBRARIES}
+target_link_libraries(framedot_terminal_ncurses
+  PUBLIC
+    framedot::framedot
+    ${CURSES_LIBRARIES}
 )
 
-target_include_directories(framedot_term_probe PRIVATE
-  ${CURSES_INCLUDE_DIRS}
+# --------------------------
+# Manual-run demo executable
+# --------------------------
+add_executable(framedot_term_ncurses_demo
+  examples/term_demo.cpp
+)
+
+target_link_libraries(framedot_term_ncurses_demo PRIVATE
+  framedot::terminal_ncurses
 )

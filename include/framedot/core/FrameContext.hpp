@@ -1,7 +1,15 @@
+// include/framedot/core/FrameContext.hpp
+/**
+ * @file FrameContext.hpp
+ * @brief 한 프레임 동안 불변으로 취급하는 스냅샷 컨텍스트.
+ *
+ * 멀티스레드 업데이트/RenderPrep를 위해, "읽기 쉬운 포인터 뭉치" 형태를 유지한다.
+ */
 #pragma once
 #include <framedot/input/InputQueue.hpp>
 #include <framedot/input/InputState.hpp>
 #include <framedot/core/JobSystem.hpp>
+#include <framedot/gfx/RenderQueue.hpp>
 
 #include <cstdint>
 
@@ -28,6 +36,9 @@ namespace framedot::core {
 
         /// @brief 잡 시스템(병렬 실행용)
         framedot::core::JobSystem* jobs{nullptr};
+
+        /// @brief RenderPrep 기록 대상(프레임당). 게임/시스템은 여기에 그릴 내용을 기록.
+        framedot::gfx::RenderQueue* render_queue{nullptr};
     };  
 
 } // namespace framedot::core

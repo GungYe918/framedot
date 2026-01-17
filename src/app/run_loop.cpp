@@ -1,18 +1,27 @@
 // src/app/run_loop.cpp
+/**
+ * @file run_loop.cpp
+ * @brief RunLoop 구현부.
+ *        입력 -> 업데이트 -> RenderPrep -> 소프트웨어 픽셀화 -> present 순서를 실행한다.
+ *
+ * 설계 원칙:
+ * - fixed_timestep=true는 "실시간"이 아니라 "결정론적 스텝퍼(테스트/헤드리스)"로 동작한다.
+ *   => 매 tick마다 dt=fixed_dt로 update 1회 수행, max_frames는 tick 수 기준.
+ * - fixed_timestep=false는 실시간 dt 기반 루프.
+ */
 #include <framedot/app/RunLoop.hpp>
 
-
 #include <framedot/core/JobSystem.hpp>
+#include <framedot/gfx/SoftwareRenderer.hpp>
 #include <framedot/input/InputQueue.hpp>
 #include <framedot/input/InputState.hpp>
 #include <framedot/input/InputCollector.hpp>
 
 #include <chrono>
-#include <thread>
-
 
 namespace framedot::app {
 
+    /// @brief 엔진 RunLoop 실행
     int run(
         Client& client,
         framedot::gfx::PixelCanvas& canvas,
@@ -22,27 +31,96 @@ namespace framedot::app {
     {
         using clock = std::chrono::steady_clock;
 
-        /// @brief 입력 상태는 "프레임마다 begin_frame -> 이벤트 적용" 순서로 갱신한다.
         framedot::input::InputState input_state;
         framedot::input::InputQueue input_queue;
-
-        /// @brief InputCollector는 (상태 갱신 + 큐 기록)을 한 번에 수행한다.
         framedot::input::InputCollector collector(input_state, input_queue);
 
-        /// @brief 잡 시스템 생성 (플랫폼에 따라 워커 0일 수도 있음)
         framedot::core::JobSystem* jobs = framedot::core::create_default_jobsystem(cfg.worker_threads);
+
+        framedot::gfx::RenderQueue rq;
+        framedot::gfx::SoftwareRenderer sw;
 
         framedot::core::FrameContext ctx{};
         ctx.jobs = jobs;
 
-        auto prev = clock::now();
-        double acc = 0.0;
-
-        std::uint64_t frames = 0;
+        std::uint64_t tick = 0;
         double time_sec = 0.0;
 
+        auto should_stop = [&](std::uint64_t tick_now) -> bool {
+            return (cfg.max_frames != 0) && (tick_now >= cfg.max_frames);
+        };
+
+        // ----------------------------
+        // fixed timestep = deterministic stepper (test/headless)
+        // ----------------------------
+        if (cfg.fixed_timestep) {
+            while (true) {
+                if (should_stop(tick)) break;
+
+                // ----------------------------
+                // [Stage 0] frame context
+                // ----------------------------
+                ctx.frame_index = tick;
+                ctx.dt_seconds  = cfg.fixed_dt;
+                ctx.time_seconds = time_sec;
+
+                // ----------------------------
+                // [Stage 1] input
+                // ----------------------------
+                input_state.begin_frame();
+                input_queue.clear();
+
+                if (input) {
+                    input->pump(collector);
+                }
+
+                ctx.input_state  = &input_state;
+                ctx.input_events = &input_queue;
+
+                client.on_input(ctx);
+
+                // ----------------------------
+                // [Stage 2] update
+                // ----------------------------
+                const bool keep_running = client.update(ctx);
+                jobs->wait_idle();
+                if (!keep_running) break;
+
+                // ----------------------------
+                // [Stage 3] RenderPrep
+                // ----------------------------
+                rq.begin_frame();
+                ctx.render_queue = &rq;
+
+                client.render_prep(ctx, rq);
+                jobs->wait_idle();
+
+                // ----------------------------
+                // [Stage 4] Raster
+                // ----------------------------
+                sw.execute(rq, canvas);
+
+                // ----------------------------
+                // [Stage 5] Present
+                // ----------------------------
+                surface.present(canvas.frame());
+
+                // tick advance
+                ++tick;
+                time_sec += cfg.fixed_dt;
+            }
+
+            framedot::core::destroy_default_jobsystem(jobs);
+            return 0;
+        }
+
+        // ----------------------------
+        // variable timestep = realtime loop
+        // ----------------------------
+        auto prev = clock::now();
+
         while (true) {
-            if (cfg.max_frames != 0 && frames >= cfg.max_frames) break;
+            if (should_stop(tick)) break;
 
             const auto now = clock::now();
             std::chrono::duration<double> dt = now - prev;
@@ -51,70 +129,38 @@ namespace framedot::app {
             double dt_s = dt.count();
             if (dt_s > cfg.max_dt) dt_s = cfg.max_dt;
 
-            /// ----------------------------
-            /// [Stage 0] 프레임 컨텍스트 준비
-            /// ----------------------------
-            ctx.frame_index = frames;
+            ctx.frame_index = tick;
             ctx.dt_seconds  = dt_s;
             time_sec += dt_s;
             ctx.time_seconds = time_sec;
 
-            /// ----------------------------
-            /// [Stage 1] 입력 수집 (플랫폼 스레드에서만!)
-            /// ----------------------------
+            // input
             input_state.begin_frame();
             input_queue.clear();
+            if (input) input->pump(collector);
 
-            if (input) {
-                /// @brief 플랫폼 입력 소스에서 이벤트 폴링 -> collector에 push
-                /// - 오버플로 정책으로 기록은 드랍될 수 있으나, 상태는 항상 최신 유지
-                input->pump(collector);
-            }
+            ctx.input_state  = &input_state;
+            ctx.input_events = &input_queue;
 
-            ctx.input_state = &input_state;
+            client.on_input(ctx);
 
-            /// ----------------------------
-            /// [Stage 2] 업데이트 (SMP 대상)
-            /// ----------------------------
-            bool keep_running = true;
+            // update
+            const bool keep_running = client.update(ctx);
+            jobs->wait_idle();
+            if (!keep_running) break;
 
-            if (cfg.fixed_timestep) {
-                acc += dt_s;
-                while (acc >= cfg.fixed_dt) {
-                    /// @brief 여기서부터는 "게임 스레드 로직"으로 간주
-                    /// - 내부에서 jobs->enqueue()로 병렬 일을 던질 수 있음
-                    ctx.dt_seconds = cfg.fixed_dt;
-                    keep_running = client.update(ctx);
-                    if (!keep_running) break;
+            // render prep
+            rq.begin_frame();
+            ctx.render_queue = &rq;
 
-                    /// @brief 프레임 내 병렬 작업이 있다면, 스테이지 경계에서 배리어를 거는 게 기본 패턴
-                    jobs->wait_idle();
+            client.render_prep(ctx, rq);
+            jobs->wait_idle();
 
-                    acc -= cfg.fixed_dt;
-                }
-                if (!keep_running) break;
-            } else {
-                keep_running = client.update(ctx);
-                if (!keep_running) break;
-                jobs->wait_idle();
-            }
+            // raster + present
+            sw.execute(rq, canvas);
+            surface.present(canvas.frame());
 
-            /// ----------------------------
-            /// [Stage 3] 렌더 (일단 단일 스레드)
-            /// ----------------------------
-            /// @brief PixelCanvas는 단일 버퍼라서 무턱대고 병렬 write하면 레이스 난다.
-            /// - 추후 타일링/커맨드버퍼/더블버퍼로 병렬 렌더 확장 가능
-            client.render(ctx, canvas);
-
-            /// ----------------------------
-            /// [Stage 4] Present (플랫폼 스레드 고정)
-            /// ----------------------------
-            surface.present(canvas);
-
-            ++frames;
-
-            /// @brief 과점유 방지(나중에 target fps 정책으로 교체)
-            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            ++tick;
         }
 
         framedot::core::destroy_default_jobsystem(jobs);

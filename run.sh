@@ -18,7 +18,8 @@ framedot 빌드/테스트/설치 스크립트
       이 도움말을 출력합니다.
 
   --with-platforms
-      platforms(예: ncurses 터미널) 타겟을 함께 빌드/실행합니다.
+      platforms(예: ncurses 터미널) 타겟을 함께 빌드합니다.
+      빌드된 플랫폼 데모 실행파일은 tests/out/ 으로 복사됩니다(자동 실행 안 함).
 
   --engine-op "<CMake 옵션 문자열>"
       CMake 구성 단계에 추가 옵션을 전달합니다.
@@ -58,10 +59,11 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 BUILD_DIR="${ROOT_DIR}/build"
 INSTALL_DIR="${ROOT_DIR}/_install"
 CONSUMER_DIR="${ROOT_DIR}/build_consumer"
+OUT_DIR="${ROOT_DIR}/tests/out"
 
 if [[ "${DO_CLEAR}" -eq 1 ]]; then
   echo "[0/0] 빌드 산출물 삭제..."
-  rm -rf "${BUILD_DIR}" "${INSTALL_DIR}" "${CONSUMER_DIR}"
+  rm -rf "${BUILD_DIR}" "${INSTALL_DIR}" "${CONSUMER_DIR}" "${OUT_DIR}"
   echo "완료."
   exit 0
 fi
@@ -74,6 +76,7 @@ fi
 echo "[1/5] Configure engine..."
 cmake -S "${ROOT_DIR}" -B "${BUILD_DIR}" \
   -DCMAKE_BUILD_TYPE=Debug \
+  -DBUILD_SHARED_LIBS=OFF \
   -DFRAMEDOT_BUILD_TESTS=ON \
   -DCMAKE_TOOLCHAIN_FILE=${ROOT_DIR}/cmake/toolchains/clang.cmake \
   -DFRAMEDOT_BUILD_EXAMPLES=ON \
@@ -92,8 +95,22 @@ echo "[4/5] Run smoke example..."
 "${BUILD_DIR}/examples/smoke/framedot_smoke"
 
 if [[ "${WITH_PLATFORMS}" -eq 1 ]]; then
-  echo "[4.5/5] Run terminal probe..."
-  "${BUILD_DIR}/platforms/terminal_ncurses/framedot_term_probe"
+  echo "[4.5/5] Collect platform demos into tests/out (manual run)..."
+  rm -rf "${OUT_DIR}"
+  mkdir -p "${OUT_DIR}"
+
+  # ncurses terminal demo
+  NCURSES_DEMO="${BUILD_DIR}/platforms/terminal_ncurses/framedot_term_ncurses_demo"
+  if [[ -f "${NCURSES_DEMO}" ]]; then
+    cp -f "${NCURSES_DEMO}" "${OUT_DIR}/"
+    echo "  copied: framedot_term_ncurses_demo -> tests/out/"
+  else
+    echo "  [warn] not found: ${NCURSES_DEMO}"
+  fi
+
+  echo "Platform demos are ready. Try:"
+  echo "  ${OUT_DIR}/framedot_term_ncurses_demo"
+  echo "  (press q to quit)"
 fi
 
 echo "[5/5] Install + consumer find_package test..."
@@ -134,4 +151,4 @@ cmake -S "${CONSUMER_DIR}" -B "${CONSUMER_DIR}/build" \
 cmake --build "${CONSUMER_DIR}/build" -j16
 "${CONSUMER_DIR}/build/consumer"
 
-echo "OK: build/test/install/consumer all passed."
+echo "OK: build/test/smoke/install/consumer all passed."

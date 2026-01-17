@@ -6,6 +6,7 @@ add_library(framedot
   app/run_loop.cpp
   ecs/world.cpp
   gfx/pixel_canvas.cpp
+  gfx/software_renderer.cpp
 )
 
 add_library(framedot::framedot ALIAS framedot)

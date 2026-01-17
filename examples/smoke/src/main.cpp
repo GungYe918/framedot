@@ -2,6 +2,7 @@
 #include <framedot/framedot.hpp>
 #include <framedot/ecs/World.hpp>
 #include <framedot/core/Tasks.hpp>
+#include <framedot/gfx/RenderQueue.hpp>
 
 #include <iostream>
 #include <cmath>
@@ -11,7 +12,7 @@ using namespace framedot;
 namespace {
 class NullSurface final : public rhi::Surface {
 public:
-    void present(const gfx::PixelCanvas&) override {}
+    void present(const gfx::PixelFrame&) override {}
 };
 
 class SmokeClient final : public app::Client {
@@ -42,10 +43,8 @@ public:
             return false;
         }
 
-        // 1) ECS tick: ReadOnly는 엔진이 Engine lane으로 병렬 실행 (World 내부 로직)
         m_world.tick(ctx);
 
-        // 2) 유저가 명시적으로 TaskGroup(User lane) 사용해보기
         if (ctx.jobs && ctx.jobs->worker_count() > 0) {
             core::TaskGroup tg(ctx.jobs, core::JobLane::User);
 
@@ -64,7 +63,6 @@ public:
                 return static_cast<double>(acc);
             });
 
-            // tg는 scope 종료 시 자동 wait하지만, smoke에서는 명시적으로 보여주자
             tg.wait();
 
             if ((ctx.frame_index % 60ull) == 0ull) {
@@ -80,10 +78,10 @@ public:
         return true;
     }
 
-    void render(const core::FrameContext& ctx, gfx::PixelCanvas& canvas) override {
+    void render_prep(const core::FrameContext& ctx, gfx::RenderQueue& rq) override {
         (void)ctx;
-        canvas.clear(gfx::Color::rgba(0,0,0,255));
-        canvas.put_pixel(1, 1, gfx::Color::rgba(255,255,255,255));
+        rq.clear(gfx::Color::rgba(0,0,0,255));
+        rq.put_pixel(1, 1, gfx::Color::rgba(255,255,255,255));
     }
 
 private:

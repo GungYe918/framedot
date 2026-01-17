@@ -1,7 +1,6 @@
 // platforms/terminal_ncurses/src/TerminalSurface.cpp
 #include <framedot_platform/TerminalSurface.hpp>
-#include <framedot/gfx/Color.hpp>
-#include <framedot/gfx/PixelCanvas.hpp>
+#include <framedot/gfx/PixelFrame.hpp>
 
 #include <algorithm>
 #include <cstdint>
@@ -11,40 +10,25 @@
 
 namespace framedot::platform::terminal {
 
-    static inline std::uint32_t u8(std::uint8_t v) { return static_cast<std::uint32_t>(v); }
-
-    // Same packing rule as PixelCanvas (0xRRGGBBAA)
-    static inline std::uint32_t pack_rgba(std::uint8_t r, std::uint8_t g, std::uint8_t b, std::uint8_t a) {
-        return (u8(r) << 24) | (u8(g) << 16) | (u8(b) << 8) | u8(a);
-    }
-
-    static constexpr std::uint8_t rr(std::uint32_t p) { return static_cast<std::uint8_t>((p >> 24) & 0xFF); }
-    static constexpr std::uint8_t gg(std::uint32_t p) { return static_cast<std::uint8_t>((p >> 16) & 0xFF); }
-    static constexpr std::uint8_t bb(std::uint32_t p) { return static_cast<std::uint8_t>((p >>  8) & 0xFF); }
-    static constexpr std::uint8_t aa(std::uint32_t p) { return static_cast<std::uint8_t>((p >>  0) & 0xFF); }
-
     static short quantize_to_curses_bg(std::uint32_t rgba) {
-        const int a = aa(rgba);
+        using framedot::gfx::PixelFrame;
+
+        const int a = PixelFrame::a(rgba);
         if (a == 0) return COLOR_BLACK;
 
-        const int r = rr(rgba);
-        const int g = gg(rgba);
-        const int b = bb(rgba);
+        const int r = PixelFrame::r(rgba);
+        const int g = PixelFrame::g(rgba);
+        const int b = PixelFrame::b(rgba);
 
-        // simple luminance-ish
         const int lum = (r * 30 + g * 59 + b * 11) / 100;
 
-        // very dark -> black, very bright & neutral -> white
         const int maxc = std::max({r, g, b});
         const int minc = std::min({r, g, b});
 
         if (maxc < 40) return COLOR_BLACK;
         if (minc > 215) return COLOR_WHITE;
-
-        // near-gray (low saturation): choose white/black by luminance
         if ((maxc - minc) < 25) return (lum > 128) ? COLOR_WHITE : COLOR_BLACK;
 
-        // detect 2-channel mixes first (yellow/cyan/magenta)
         const bool r_hi = r > 150;
         const bool g_hi = g > 150;
         const bool b_hi = b > 150;
@@ -53,7 +37,6 @@ namespace framedot::platform::terminal {
         if (g_hi && b_hi && !r_hi) return COLOR_CYAN;
         if (r_hi && b_hi && !g_hi) return COLOR_MAGENTA;
 
-        // dominant single channel
         if (r >= g && r >= b) return COLOR_RED;
         if (g >= r && g >= b) return COLOR_GREEN;
         return COLOR_BLUE;
@@ -134,7 +117,7 @@ namespace framedot::platform::terminal {
         return (ch == ERR) ? -1 : ch;
     }
 
-    void TerminalSurface::present(const framedot::gfx::PixelCanvas& canvas) {
+    void TerminalSurface::present(const framedot::gfx::PixelFrame& frame) {
         ensure_init_();
 
         int rows = 0, cols = 0;
@@ -148,18 +131,22 @@ namespace framedot::platform::terminal {
             full_redraw_();
         }
 
-        const int cw = static_cast<int>(canvas.width());
-        const int ch = static_cast<int>(canvas.height());
+        if (!frame.valid()) {
+            refresh();
+            return;
+        }
+
+        const int cw = static_cast<int>(frame.width);
+        const int ch = static_cast<int>(frame.height);
 
         const int draw_w = std::max(0, std::min(cols, cw));
         const int draw_h = std::max(0, std::min(rows, ch));
 
-        auto px = canvas.pixels(); // span<const Pixel>
-        const std::uint32_t* src = reinterpret_cast<const std::uint32_t*>(px.data());
+        const std::uint32_t* src = frame.pixels.data();
+        const int stride = static_cast<int>(frame.stride_pixels);
 
-        // Draw only visible region
         for (int y = 0; y < draw_h; ++y) {
-            const int row_off_src = y * cw;
+            const int row_off_src = y * stride;
             const int row_off_dst = y * cols;
 
             for (int x = 0; x < draw_w; ++x) {
@@ -171,7 +158,6 @@ namespace framedot::platform::terminal {
 
                 if (m_color_ok) {
                     const short bg = quantize_to_curses_bg(p);
-                    // map bg color to pair id
                     short pair_id = 1;
                     switch (bg) {
                         case COLOR_BLACK:   pair_id = 1; break;
@@ -184,12 +170,11 @@ namespace framedot::platform::terminal {
                         case COLOR_WHITE:   pair_id = 8; break;
                         default:            pair_id = 1; break;
                     }
-
-                    // paint background by printing a space with bg color
                     mvaddch(y, x, ' ' | COLOR_PAIR(pair_id));
                 } else {
-                    // no color: approximate using ASCII density by luminance
-                    const int r = rr(p), g = gg(p), b = bb(p);
+                    const int r = framedot::gfx::PixelFrame::r(p);
+                    const int g = framedot::gfx::PixelFrame::g(p);
+                    const int b = framedot::gfx::PixelFrame::b(p);
                     const int lum = (r * 30 + g * 59 + b * 11) / 100;
 
                     char c = ' ';
@@ -205,11 +190,7 @@ namespace framedot::platform::terminal {
             }
         }
 
-        // If terminal larger than canvas, you can optionally clear the rest.
-        // (We keep it as-is for now to avoid extra work.)
-
         refresh();
-
     }
 
 } // namespace framedot::platform::terminal

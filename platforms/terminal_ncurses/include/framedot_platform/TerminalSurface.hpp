@@ -1,4 +1,8 @@
 // platforms/terminal_ncurses/include/framedot_platform/TerminalSurface.hpp
+/**
+ * @file TerminalSurface.hpp
+ * @brief ncurses 기반 출력 어댑터. PixelFrame(view)을 받아 터미널로 변환 출력
+ */
 #pragma once
 #include <framedot/rhi/Surface.hpp>
 #include <cstdint>
@@ -16,7 +20,7 @@ namespace framedot::platform::terminal {
         TerminalSurface& operator=(const TerminalSurface&) = delete;
 
         // Canvas -> terminal present
-        void present(const framedot::gfx::PixelCanvas& canvas) override;
+        void present(const framedot::gfx::PixelFrame& frame) override;
 
         // Non-blocking key poll. Returns -1 if no key.
         int poll_key() noexcept;

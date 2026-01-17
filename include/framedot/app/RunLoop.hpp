@@ -1,11 +1,20 @@
 // include/framedot/app/RunLoop.hpp
+/**
+ * @file RunLoop.hpp
+ * @brief 프레임 루프(입력/업데이트/RenderPrep/픽셀화/Present) 실행기
+ *
+ * RenderPrep는 무엇을 그릴지(RenderQueue 기록)만 하고,
+ * 실제 픽셀화는 엔진 내부 SoftwareRenderer가 수행
+ */
 #pragma once
 #include <cstdint>
 
 #include <framedot/gfx/PixelCanvas.hpp>
+#include <framedot/gfx/RenderQueue.hpp>
 #include <framedot/rhi/Surface.hpp>
 #include <framedot/input/InputSource.hpp>
 #include <framedot/core/FrameContext.hpp>
+
 
 namespace framedot::app {
 
@@ -20,9 +29,9 @@ namespace framedot::app {
         /// @return false를 반환하면 루프 종료
         virtual bool update(const framedot::core::FrameContext& ctx) = 0;
 
-        /// @brief 렌더 (캔버스에 그리기만 수행). 출력은 Surface가 담당
-        virtual void render(const framedot::core::FrameContext& ctx,
-                            framedot::gfx::PixelCanvas& canvas) = 0;
+        /// @brief RenderPrep: 그릴 것을 RenderQueue에 기록한다. (픽셀 write 금지)
+        virtual void render_prep(const framedot::core::FrameContext& ctx,
+                                 framedot::gfx::RenderQueue& rq) = 0;
     };
 
     struct RunLoopConfig {

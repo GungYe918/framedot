@@ -1,4 +1,8 @@
 // src/gfx/pixel_canvas.cpp
+/**
+ * @file pixel_canvas.cpp
+ * @brief PixelCanvas의 구현부.
+ */
 #include <framedot/gfx/PixelCanvas.hpp>
 
 
