@@ -1,0 +1,15 @@
+#pragma once
+#include <cstddef>
+#include <cstdint>
+
+
+namespace framedot::core::config {
+
+    /// @brief 프레임당 입력 이벤트 큐 최대 용량
+    inline constexpr std::size_t max_input_events = @FRAMEDOT_MAX_INPUT_EVENTS@;
+
+    /// @brief 입력 큐 오버플로 정책
+    /// 0=DropNewest, 1=DropOldest, 2=CoalesceMouseMove
+    inline constexpr std::uint32_t input_overflow_policy = @FRAMEDOT_INPUT_OVERFLOW_POLICY@;
+
+} // namespace framedot::core::config
