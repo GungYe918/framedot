@@ -40,10 +40,4 @@ namespace framedot::core {
         virtual void wait_idle() = 0;
     };
 
-    /// @brief 기본 구현 생성 헬퍼
-    JobSystem* create_default_jobsystem(std::uint32_t worker_threads);
-
-    /// @brief 기본 구현 파괴 헬퍼
-    void destroy_default_jobsystem(JobSystem* js) noexcept;
-
 } // namespace framedot::core

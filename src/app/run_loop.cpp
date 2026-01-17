@@ -11,7 +11,7 @@
  */
 #include <framedot/app/RunLoop.hpp>
 
-#include <framedot/core/JobSystem.hpp>
+#include <framedot_internal/core/DefaultJobSystem.hpp>
 #include <framedot/gfx/SoftwareRenderer.hpp>
 #include <framedot/input/InputQueue.hpp>
 #include <framedot/input/InputState.hpp>

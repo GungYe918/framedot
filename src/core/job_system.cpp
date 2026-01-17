@@ -1,4 +1,5 @@
 // src/core/job_system.cpp
+#include <framedot_internal/core/DefaultJobSystem.hpp>
 #include <framedot/core/JobSystem.hpp>
 #include <framedot/core/Config.hpp>
 

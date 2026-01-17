@@ -220,14 +220,14 @@ namespace framedot::gfx {
         }
 
         // ---- Text ----
-        // RenderQueue 내부 arena로 복사해서 수명 문제 제거
         bool text(std::int32_t x, std::int32_t y,
-                  std::string_view utf8,
-                  ColorRGBA8 color,
-                  std::uint32_t sort_key = 0) noexcept {
+                std::string_view utf8,
+                ColorRGBA8 color,
+                std::uint32_t sort_key,
+                std::uint8_t scale) noexcept
+        {
             if (utf8.empty()) return true;
 
-            // arena allocate
             const std::uint32_t len = (std::uint32_t)utf8.size();
             const std::uint32_t ofs = m_text_ofs.fetch_add(len + 1, std::memory_order_acq_rel);
             if (ofs + len + 1 > (std::uint32_t)kTextArenaBytes) {
@@ -245,7 +245,17 @@ namespace framedot::gfx {
             cmd.x0 = x; cmd.y0 = y;
             cmd.x1 = (std::int32_t)ofs;
             cmd.y1 = (std::int32_t)len;
+            cmd.u0 = (std::uint16_t)((scale == 0) ? 1 : scale); // ★ scale 저장
             return push_(cmd);
+        }
+
+        bool text(
+            std::int32_t x, std::int32_t y,
+            std::string_view utf8,
+            ColorRGBA8 color,
+            std::uint32_t sort_key = 0
+        ) noexcept {
+            return text(x, y, utf8, color, sort_key, 1);
         }
 
     private:

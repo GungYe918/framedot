@@ -7,6 +7,8 @@ add_library(framedot
   ecs/world.cpp
   gfx/pixel_canvas.cpp
   gfx/software_renderer.cpp
+  text/text_engine.cpp
+  text/harfbuzz_backend.cpp
 )
 
 add_library(framedot::framedot ALIAS framedot)

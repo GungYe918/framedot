@@ -193,7 +193,7 @@ namespace framedot::ecs::systems {
                 });
 
                 run_chunks(texts, tc, [&](const TextItem& it) noexcept {
-                    rq->text(it.x, it.y, std::string_view(it.text, it.len), it.color, it.sort_key);
+                    rq->text(it.x, it.y, std::string_view(it.text, it.len), it.color, it.sort_key, it.scale);
                 });
             }
         );
