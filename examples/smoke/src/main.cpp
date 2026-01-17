@@ -13,12 +13,15 @@ public:
 
 class SmokeClient final : public app::Client {
 public:
-    bool update(double /*dt*/) override {
-        ++ticks;
-        return ticks < 10; // 10프레임 돌고 종료
+    bool update(const framedot::core::FrameContext& ctx) override {
+        if (ctx.input_state && ctx.input_state->key_just_pressed(framedot::input::Key::Escape)) {
+            return false;
+        }
+        return true;
     }
 
-    void render(gfx::PixelCanvas& canvas) override {
+    void render(const framedot::core::FrameContext& ctx, gfx::PixelCanvas& canvas) override {
+        (void)ctx;
         canvas.clear(gfx::Color::rgba(0,0,0,255));
         // 더미 픽셀 하나 찍기
         canvas.put_pixel(1, 1, gfx::Color::rgba(255,255,255,255));
@@ -37,7 +40,7 @@ int main() {
     app::RunLoopConfig cfg;
     cfg.fixed_timestep = true;
     cfg.fixed_dt = 1.0/60.0;
-    cfg.max_frames = 0;
+    cfg.max_frames = 256;
 
     std::cout << "framedot smoke running...\n";
     return app::run(client, canvas, surface, cfg);

@@ -12,7 +12,7 @@ namespace framedot::platform::terminal {
         using framedot::input::Key;
 
         /// @brief ncurses 키코드를 엔진 키로 변환
-        switch(ch) {
+        switch (ch) {
             case KEY_LEFT:  return Key::Left;
             case KEY_RIGHT: return Key::Right;
             case KEY_UP:    return Key::Up;
@@ -31,15 +31,13 @@ namespace framedot::platform::terminal {
 
             default: return Key::Unknown;
         }
-
-        return Key::Unknown;
     }
 
-    /// @brief 가능한 입력을 다 읽어서 out에 밀어넣는다.
-    /// - 터미널은 key release를 얻기 어렵기 때문에 Press 위주
-    void TerminalInput::pump(framedot::input::InputQueue& out) {
+    void TerminalInput::pump(framedot::input::InputCollector& collector) {
         using namespace framedot::input;
 
+        /// @brief 가능한 입력을 다 읽어서 collector에 밀어넣는다.
+        /// - 터미널은 key release를 얻기 어렵기 때문에 Press 위주.
         while (true) {
             const int ch = m_surf.poll_key();
             if (ch < 0) break;
@@ -54,7 +52,8 @@ namespace framedot::platform::terminal {
             ev.type = EventType::Key;
             ev.data.key = KeyEvent{ k, KeyAction::Press };
 
-            (void)out.push(ev); // 큐가 가득 차면 드랍
+            /// @brief 오버플로 시에도 상태는 유지되고, 이벤트 기록만 정책에 따라 드랍될 수 있다.
+            (void)collector.push(ev);
         }
     }
 
