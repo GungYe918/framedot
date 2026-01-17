@@ -10,6 +10,7 @@
 #pragma once
 #include <framedot/gfx/RenderQueue.hpp>
 #include <framedot/gfx/PixelCanvas.hpp>
+#include <framedot/core/FrameContext.hpp>
 
 
 namespace framedot::gfx {
@@ -19,6 +20,11 @@ namespace framedot::gfx {
         /// @brief RenderQueue에 기록된 커맨드를 PixelCanvas로 래스터라이즈
         void execute(const RenderQueue& rq, PixelCanvas& out) noexcept;
 
+        // jobs를 활용하는 병렬 경로
+        void execute(
+            const framedot::core::FrameContext& ctx,
+            const RenderQueue& rq,
+            PixelCanvas& out) noexcept;
     };
 
 } // namespace framedot::gfx

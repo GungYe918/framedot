@@ -28,3 +28,15 @@ FetchContent_Declare(
   GIT_TAG        1.0.3
 )
 FetchContent_MakeAvailable(glm)
+
+# Harfbuzz
+if(FRAMEDOT_USE_SYSTEM_DEPS)
+  find_package(harfbuzz REQUIRED)
+else()
+  FetchContent_Declare(
+    harfbuzz
+    GIT_REPOSITORY https://github.com/harfbuzz/harfbuzz.git
+    GIT_TAG        8.4.0
+  )
+  FetchContent_MakeAvailable(harfbuzz)
+endif()
