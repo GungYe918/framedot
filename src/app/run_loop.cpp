@@ -35,7 +35,7 @@ namespace framedot::app {
         framedot::input::InputQueue input_queue;
         framedot::input::InputCollector collector(input_state, input_queue);
 
-        framedot::core::JobSystem* jobs = framedot::core::create_default_jobsystem(cfg.worker_threads);
+        framedot::core::JobSystem* jobs = framedot::core::internal::create_default_jobsystem(cfg.worker_threads);
 
         framedot::gfx::RenderQueue rq;
         framedot::gfx::SoftwareRenderer sw;
@@ -110,7 +110,7 @@ namespace framedot::app {
                 time_sec += cfg.fixed_dt;
             }
 
-            framedot::core::destroy_default_jobsystem(jobs);
+            framedot::core::internal::destroy_default_jobsystem(jobs);
             return 0;
         }
 
@@ -163,7 +163,7 @@ namespace framedot::app {
             ++tick;
         }
 
-        framedot::core::destroy_default_jobsystem(jobs);
+        framedot::core::internal::destroy_default_jobsystem(jobs);
         return 0;
     }
 

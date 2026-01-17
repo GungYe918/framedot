@@ -11,7 +11,7 @@
 #include <vector>
 
 
-namespace framedot::core {
+namespace framedot::core::internal {
 
     /// @brief std 기반 간단한 ThreadPool
     class DefaultJobSystem final : public JobSystem {
@@ -148,4 +148,4 @@ namespace framedot::core {
         delete js;
     }
 
-} // namespace framedot::core
+} // namespace framedot::core::internal

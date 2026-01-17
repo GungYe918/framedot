@@ -19,7 +19,7 @@ target_include_directories(framedot
     $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/generated>
     $<INSTALL_INTERFACE:include>
   PRIVATE
-    ${PROJECT_SOURCE_DIR}/internal
+    ${PROJECT_SOURCE_DIR}/include
     ${PROJECT_SOURCE_DIR}/src
 )
 
