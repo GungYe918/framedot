@@ -15,12 +15,12 @@ namespace framedot::ecs {
     void World::add_read_system(Phase phase, ReadSystem fn) {
         // 빈 함수면 return
         if (!fn) return;
-        m_read.push_back(ReadEntry{ phase, std::move(fn) });
+        m_read[phase_index_(phase)].push_back(std::move(fn));
     }
 
     void World::add_write_system(Phase phase, WriteSystem fn) {
         if (!fn) return;
-        m_write.push_back(WriteEntry{ phase, std::move(fn) });
+        m_write[phase_index_(phase)].push_back(std::move(fn));
     }
 
     void World::tick(const framedot::core::FrameContext& ctx) {
@@ -31,35 +31,44 @@ namespace framedot::ecs {
             const Phase p = static_cast<Phase>(pi);
 
             // ----------------------------
+            // 0) RenderPrep는 ECS가 begin_frame을 관리한다. (유저 편의)
+            // ----------------------------
+            if (p == Phase::RenderPrep) {
+                if (ctx.render_queue) {
+                    ctx.render_queue->begin_frame();
+                }
+            }
+
+            // ----------------------------
             // 1) ReadOnly 시스템: Phase 내부 병렬 후보
             // ----------------------------
-            if (jobs && jobs->worker_count() > 0) {
-                framedot::core::TaskGroup tg(jobs, framedot::core::JobLane::Engine);
+            auto& reads = m_read[pi];
 
-                for (auto& e : m_read) {
-                    if (e.phase != p) continue;
+            if (!reads.empty()) {
+                if (jobs && jobs->worker_count() > 0) {
+                    framedot::core::TaskGroup tg(jobs, framedot::core::JobLane::Engine);
 
-                    // registry는 const로만 전달
-                    tg.run([ctxp, this, fn = e.fn]() {
-                        fn(*ctxp, static_cast<const Registry&>(this->m_reg));
-                    });
-                }
+                    for (auto& fn : reads) {
+                        tg.run([ctxp, this, f = fn]() mutable {
+                            f(*ctxp, static_cast<const Registry&>(this->m_reg));
+                        });
+                    }
 
-                // 이번 phase에서 던진 것만 기다림 (jobs 전체 idle 아님!)
-                tg.wait();
-            } else {
-                for (auto& e : m_read) {
-                    if (e.phase != p) continue;
-                    e.fn(ctx, static_cast<const Registry&>(m_reg));
+                    // 이번 phase에서 던진 것만 기다림 (jobs 전체 idle 아님!)
+                    tg.wait();
+                } else {
+                    for (auto& fn : reads) {
+                        fn(ctx, static_cast<const Registry&>(m_reg));
+                    }
                 }
             }
 
             // ----------------------------
             // 2) Write 시스템: 기본 직렬 실행
             // ----------------------------
-            for (auto& e : m_write) {
-                if (e.phase != p) continue;
-                e.fn(ctx, m_reg);
+            auto& writes = m_write[pi];
+            for (auto& fn : writes) {
+                fn(ctx, m_reg);
             }
         }
     }
