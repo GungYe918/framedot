@@ -33,6 +33,13 @@ endif()
 # --- Generate config header (single source of truth) ---
 set(FRAMEDOT_GENERATED_DIR "${PROJECT_BINARY_DIR}/generated")
 
+# ---- normalize bool cache vars to 0/1 for config header ----
+if(FRAMEDOT_ENABLE_SMP)
+  set(FRAMEDOT_ENABLE_SMP_NUM 1)
+else()
+  set(FRAMEDOT_ENABLE_SMP_NUM 0)
+endif()
+
 configure_file(
   "${CMAKE_CURRENT_SOURCE_DIR}/cmake/framedotConfig.hpp.in"
   "${FRAMEDOT_GENERATED_DIR}/framedot/core/Config.hpp"

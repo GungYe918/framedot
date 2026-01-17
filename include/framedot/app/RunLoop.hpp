@@ -28,9 +28,12 @@ namespace framedot::app {
     struct RunLoopConfig {
         bool   fixed_timestep = false;
         double fixed_dt = 1.0 / 60.0;
-
         double max_dt = 0.1;             // dt spike clamp
+        
         std::uint64_t max_frames = 0;     // 0이면 무한
+
+        /// @brief 워커 스레드 수(0=자동). SMP 비활성/플랫폼 제약이면 내부에서 0으로 축소될 수 있음.
+        std::uint32_t worker_threads = 0;
     };
 
     int run(Client& client,

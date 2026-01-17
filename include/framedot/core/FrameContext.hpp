@@ -1,6 +1,7 @@
 #pragma once
 #include <framedot/input/InputQueue.hpp>
 #include <framedot/input/InputState.hpp>
+#include <framedot/core/JobSystem.hpp>
 
 #include <cstdint>
 
@@ -24,6 +25,9 @@ namespace framedot::core {
 
         /// @brief 이번 프레임 입력 이벤트 기록 (오버플로로 일부 드랍 가능)
         const framedot::input::InputQueue* input_events{nullptr};
+
+        /// @brief 잡 시스템(병렬 실행용)
+        framedot::core::JobSystem* jobs{nullptr};
     };  
 
 } // namespace framedot::core

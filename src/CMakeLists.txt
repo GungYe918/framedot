@@ -2,6 +2,7 @@
 
 add_library(framedot
   core/version.cpp
+  core/job_system.cpp
   app/run_loop.cpp
   ecs/world.cpp
   gfx/pixel_canvas.cpp

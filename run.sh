@@ -75,6 +75,7 @@ echo "[1/5] Configure engine..."
 cmake -S "${ROOT_DIR}" -B "${BUILD_DIR}" \
   -DCMAKE_BUILD_TYPE=Debug \
   -DFRAMEDOT_BUILD_TESTS=ON \
+  -DCMAKE_TOOLCHAIN_FILE=${ROOT_DIR}/cmake/toolchains/clang.cmake \
   -DFRAMEDOT_BUILD_EXAMPLES=ON \
   -DFRAMEDOT_BUILD_PLATFORMS="${PLAT_OPT}" \
   -DFRAMEDOT_USE_SYSTEM_DEPS=OFF \

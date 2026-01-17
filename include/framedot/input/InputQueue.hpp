@@ -7,6 +7,7 @@
 #include <framedot/input/Event.hpp>
 #include <framedot/core/Config.hpp>
 
+
 namespace framedot::input {
 
     /// @brief 입력 큐 오버플로 정책

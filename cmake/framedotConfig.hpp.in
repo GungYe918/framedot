@@ -12,4 +12,13 @@ namespace framedot::core::config {
     /// 0=DropNewest, 1=DropOldest, 2=CoalesceMouseMove
     inline constexpr std::uint32_t input_overflow_policy = @FRAMEDOT_INPUT_OVERFLOW_POLICY@;
 
+    /// @brief SMP 잡 시스템 활성화 여부 (0/1)
+    inline constexpr std::uint32_t enable_smp = @FRAMEDOT_ENABLE_SMP_NUM@;
+    
+    /// @brief 워커 스레드 상한(정적 배열/리소스 sizing 용도)
+    inline constexpr std::uint32_t max_worker_threads = @FRAMEDOT_MAX_WORKER_THREADS@;
+
+    /// @brief 기본 워커 스레드 수 (0이면 하드웨어 기반 자동)
+    inline constexpr std::uint32_t default_worker_threads = @FRAMEDOT_DEFAULT_WORKER_THREADS@;
+
 } // namespace framedot::core::config
