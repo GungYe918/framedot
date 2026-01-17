@@ -25,6 +25,7 @@ target_link_libraries(framedot
   PUBLIC
     fmt::fmt
     EnTT::EnTT
+    framedot::harfbuzz
 )
 
 target_compile_definitions(framedot PUBLIC
