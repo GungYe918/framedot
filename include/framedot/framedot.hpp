@@ -11,5 +11,7 @@
 #include <framedot/input/InputQueue.hpp>
 #include <framedot/input/InputState.hpp>
 #include <framedot/input/InputCollector.hpp>
+#include <framedot/core/Tasks.hpp>
+#include <framedot/core/JobSystem.hpp>
 #include <framedot/input/Event.hpp>
 #include <framedot/input/Key.hpp>

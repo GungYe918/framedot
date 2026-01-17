@@ -31,11 +31,26 @@ namespace framedot::core {
             return m_js && (m_js->worker_count() > 0);
         }
 
-        /// @brief fire-and-forget 태스크 실행
+        /// @brief std::function 전용: 비어있으면 무시
+        void run(JobSystem::Job job) {
+            if (!job) return;
+
+            if (!parallel_ok()) {
+                job();
+                return;
+            }
+
+            m_inflight.fetch_add(1, std::memory_order_relaxed);
+
+            m_js->enqueue(m_lane, [this, j = std::move(job)]() mutable {
+                j();
+                done_one_();
+            });
+        }
+
+        /// @brief 일반 callable(람다 등) 실행
         template <class F>
         void run(F&& fn) {
-            if (!fn) return;
-
             if (!parallel_ok()) {
                 fn();
                 return;
@@ -43,9 +58,6 @@ namespace framedot::core {
 
             m_inflight.fetch_add(1, std::memory_order_relaxed);
 
-            // NOTE: std::function 캡쳐는 경우에 따라 할당 발생 가능
-            //       유저 편의 API이므로 우선 허용
-            //       나중에 "SmallTask(고정버퍼)" 최적화 레이어를 추가 (TODO)
             m_js->enqueue(m_lane, [this, f = std::forward<F>(fn)]() mutable {
                 f();
                 done_one_();
@@ -116,12 +128,8 @@ namespace framedot::core {
     };
 
     /// @brief 태스크를 실행하고 결과를 TaskValue로 돌려받는 편의 함수
-    template <class F>
-    auto run_value(TaskGroup& tg, F&& fn) {
-        using R = std::invoke_result_t<F>;
-
-        TaskValue<R> out;
-
+    template <class F, class R = std::invoke_result_t<F>>
+    void run_value(TaskGroup& tg, TaskValue<R>& out, F&& fn) {
         if constexpr (std::is_void_v<R>) {
             tg.run([&out, f = std::forward<F>(fn)]() mutable {
                 f();
@@ -132,8 +140,6 @@ namespace framedot::core {
                 out.set(f());
             });
         }
-
-        return out; // 값으로 반환
     }
-
+    
 } // namespace framedot::core

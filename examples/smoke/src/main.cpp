@@ -1,6 +1,7 @@
 // examples/smoke/src/main.cpp
 #include <framedot/framedot.hpp>
 #include <framedot/ecs/World.hpp>
+#include <framedot/core/Tasks.hpp>
 
 #include <iostream>
 #include <cmath>
@@ -16,12 +17,8 @@ public:
 class SmokeClient final : public app::Client {
 public:
     SmokeClient() {
-        // 엔티티 하나 만들고 Position 같은 거 있다고 가정해도 되지만,
-        // 지금은 "읽기 전용 시스템 병렬"만 검증하자.
-
         m_world.add_read_system(ecs::Phase::Update,
             [](const core::FrameContext& ctx, const ecs::World::Registry&) {
-                // 무거운 계산(예: 2ms 정도 태우기)
                 volatile double acc = 0.0;
                 for (int i = 0; i < 200000; ++i) acc += std::sin(i * 0.001);
                 (void)ctx;
@@ -34,7 +31,6 @@ public:
                 (void)ctx;
             });
 
-        // Write 시스템은 직렬로 실행되는지 확인용(여기선 아무것도 안함)
         m_world.add_write_system(ecs::Phase::Update,
             [](const core::FrameContext& ctx, ecs::World::Registry&) {
                 (void)ctx;
@@ -46,8 +42,41 @@ public:
             return false;
         }
 
-        // ECS tick: ReadOnly는 병렬, Write는 직렬
+        // 1) ECS tick: ReadOnly는 엔진이 Engine lane으로 병렬 실행 (World 내부 로직)
         m_world.tick(ctx);
+
+        // 2) 유저가 명시적으로 TaskGroup(User lane) 사용해보기
+        if (ctx.jobs && ctx.jobs->worker_count() > 0) {
+            core::TaskGroup tg(ctx.jobs, core::JobLane::User);
+
+            core::TaskValue<double> v0;
+            core::TaskValue<double> v1;
+
+            core::run_value(tg, v0, [&]() -> double {
+                volatile double acc = 0.0;
+                for (int i = 0; i < 250000; ++i) acc += std::sin(i * 0.002);
+                return static_cast<double>(acc);
+            });
+
+            core::run_value(tg, v1, [&]() -> double {
+                volatile double acc = 1.0;
+                for (int i = 1; i < 250000; ++i) acc *= 1.00000001;
+                return static_cast<double>(acc);
+            });
+
+            // tg는 scope 종료 시 자동 wait하지만, smoke에서는 명시적으로 보여주자
+            tg.wait();
+
+            if ((ctx.frame_index % 60ull) == 0ull) {
+                std::cout << "[smoke] workers=" << ctx.jobs->worker_count()
+                          << " user_tasks=(" << v0.get() << ", " << v1.get() << ")\n";
+            }
+        } else {
+            if ((ctx.frame_index % 60ull) == 0ull) {
+                std::cout << "[smoke] no workers (single-thread path)\n";
+            }
+        }
+
         return true;
     }
 

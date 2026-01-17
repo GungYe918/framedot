@@ -15,6 +15,8 @@ namespace framedot::core {
     /// @brief std 기반 간단한 ThreadPool
     class DefaultJobSystem final : public JobSystem {
     public: 
+        using JobSystem::enqueue;
+
         explicit DefaultJobSystem(std::uint32_t worker_threads) {
             if (framedot::core::config::enable_smp == 0u) {
                 /// @brief SMP 비활성일 때는 워커를 0으로 둔다(모든 잡은 메인에서 동기 실행될 수도 있음)
@@ -55,7 +57,7 @@ namespace framedot::core {
             return static_cast<std::uint32_t>(m_workers.size());
         }
 
-        void enqueue(Job job) override {
+        void enqueue(JobLane lane, Job job) override {
             if (!job) return;
 
             if (m_workers.empty()) {
@@ -66,11 +68,20 @@ namespace framedot::core {
 
             {
                 std::lock_guard<std::mutex> lock(m_mtx);
-                m_jobs.push(std::move(job));
-                m_inflight.fetch_add(1);
+
+                /// @brief 엔진 lane 우선 처리: 큐를 분리
+                if (lane == JobLane::Engine) {
+                    m_jobs_engine.push(std::move(job));
+                } else {
+                    m_jobs_user.push(std::move(job));
+                }
+
+                m_inflight.fetch_add(1, std::memory_order_relaxed);
             }
+
             m_cv.notify_one();
         }
+
 
         void wait_idle() override {
             /// @brief 현재 inflight가 0이 될 때까지 대기
@@ -84,14 +95,22 @@ namespace framedot::core {
                 Job job;
                 {
                     std::unique_lock<std::mutex> lock(m_mtx);
-                    m_cv.wait(lock, [this]() { return m_stop || !m_jobs.empty(); });
+                    m_cv.wait(lock, [this]() {
+                        return m_stop || !m_jobs_engine.empty() || !m_jobs_user.empty();
+                    });
 
-                    if (m_stop && m_jobs.empty()) {
+                    if (m_stop && m_jobs_engine.empty() && m_jobs_user.empty()) {
                         return;
                     }
 
-                    job = std::move(m_jobs.front());
-                    m_jobs.pop();
+                    // Engine lane을 먼저 소비해서 프레임 안정성/latency를 우선
+                    if (!m_jobs_engine.empty()) {
+                        job = std::move(m_jobs_engine.front());
+                        m_jobs_engine.pop();
+                    } else {
+                        job = std::move(m_jobs_user.front());
+                        m_jobs_user.pop();
+                    }
                 }
 
                 /// @brief 잡 실행
@@ -109,7 +128,9 @@ namespace framedot::core {
         std::vector<std::thread> m_workers;
         std::mutex m_mtx;
         std::condition_variable m_cv;
-        std::queue<Job> m_jobs;
+
+        std::queue<Job> m_jobs_engine;
+        std::queue<Job> m_jobs_user;
         bool m_stop{false};
 
         std::atomic<std::uint32_t> m_inflight{0};
